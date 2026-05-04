@@ -16,6 +16,8 @@ VOLTAR_MENU       = "⬅️ Voltar ao menu"
 CONFIRMAR_REMOCAO = "✅ Confirmar remoção"
 CANCELAR_REMOCAO  = "❌ Cancelar"
 
+RELATORIO_PONTO    = "📋 Relatório de Ponto"
+
 CRIAR_NOVA_CAT     = "➕ Criar uma nova"
 RENOMEAR           = "✏️ Renomear"
 EXCLUIR_CAT        = "🗑️ Excluir categoria"
@@ -33,7 +35,7 @@ CANCELAR_EXCLUSAO  = "❌ Cancelar"
 def teclado_admin_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [[KeyboardButton("👥 Funcionários"), KeyboardButton("📦 Registrar/Editar")],
-         [KeyboardButton("🏗️ Obras")],
+         [KeyboardButton("🏗️ Obras"),        KeyboardButton(RELATORIO_PONTO)],
          [KeyboardButton(VOLTAR_MENU)]],
         resize_keyboard=True
     )
@@ -154,6 +156,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await obra_bot.handle_message(update, context)
         return
 
+    # Delega estados de relatório de ponto
+    if u["estado"].startswith("admin_relatorio_"):
+        import relatorio_ponto_bot
+        await relatorio_ponto_bot.handle_message(update, context)
+        return
+
     # --- MENU ADMIN ---
     if u["estado"] == "admin_menu":
         if texto == "👥 Funcionários":
@@ -161,6 +169,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif texto == "🏗️ Obras":
             import obra_bot
             await obra_bot.iniciar(update, context)
+        elif texto == RELATORIO_PONTO:
+            import relatorio_ponto_bot
+            await relatorio_ponto_bot.iniciar(update, context)
         elif texto == "📦 Registrar/Editar":
             u["estado"] = "admin_registrar_menu"
             await update.message.reply_text(

@@ -69,6 +69,7 @@ async def _enviar_grupo(context: ContextTypes.DEFAULT_TYPE, identificacao: str, 
             for idx, fid in enumerate(lote)
         ]
         if len(midias) == 1:
+            # yoopa
             await context.bot.send_photo(
                 chat_id=GROUP_TRABALHO_ID,
                 photo=midias[0].media,

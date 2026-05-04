@@ -19,6 +19,7 @@ async def teclado_categorias() -> ReplyKeyboardMarkup:
     linhas = [[KeyboardButton(c)] for c in categorias]
     linhas.append([KeyboardButton(OUTROS)])
     linhas.append([KeyboardButton(FINALIZAR)])
+    linhas.append([KeyboardButton(CANCELAR)])
     return ReplyKeyboardMarkup(linhas, resize_keyboard=True)
 
 
@@ -113,6 +114,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- CATEGORIA ---
     if u["estado"] == "pedido_categoria":
+        if texto == CANCELAR:
+            _cancelar(u)
+            await update.message.reply_text("Pedido cancelado.", reply_markup=ReplyKeyboardRemove())
+            return
+
         if texto == FINALIZAR:
             if not u["produtos"]:
                 await update.message.reply_text("Adicione ao menos um produto antes de finalizar.", reply_markup=await teclado_categorias())

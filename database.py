@@ -26,11 +26,6 @@ async def _criar_tabelas():
                 criado_em         TIMESTAMP DEFAULT NOW()
             );
 
-            ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS admin             BOOLEAN DEFAULT FALSE;
-            ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS fazer_pedido      BOOLEAN DEFAULT FALSE;
-            ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS bater_ponto       BOOLEAN DEFAULT FALSE;
-            ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS entregar_trabalho BOOLEAN DEFAULT FALSE;
-
             CREATE TABLE IF NOT EXISTS categorias (
                 id   SERIAL PRIMARY KEY,
                 nome TEXT UNIQUE NOT NULL
@@ -81,12 +76,6 @@ async def _criar_tabelas():
                 item_especial TEXT
             );
 
-            ALTER TABLE itens_pedido ADD COLUMN IF NOT EXISTS item_especial TEXT;
-
-        """)
-        # Recria pontos com estrutura de uma linha por batida
-        await conn.execute("""
-            DROP TABLE IF EXISTS pontos;
             CREATE TABLE IF NOT EXISTS pontos (
                 id               SERIAL PRIMARY KEY,
                 funcionario_id   INT REFERENCES funcionarios(id),
@@ -98,6 +87,7 @@ async def _criar_tabelas():
                 group_message_id BIGINT,
                 UNIQUE(funcionario_id, data, categoria)
             );
+
         """)
 
 
@@ -117,15 +107,6 @@ async def criar_solicitacao(telegram_id: int, nome: str, username: str | None):
             INSERT INTO funcionarios (telegram_id, nome, username)
             VALUES ($1, $2, $3)
             ON CONFLICT (telegram_id) DO NOTHING
-        """, telegram_id, nome, username)
-
-
-async def upsert_funcionario(telegram_id: int, nome: str, username: str | None):
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO funcionarios (telegram_id, nome, username)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (telegram_id) DO UPDATE SET nome=$2, username=$3
         """, telegram_id, nome, username)
 
 
@@ -241,20 +222,6 @@ async def remover_produto(categoria: str, nome: str):
         """, nome, categoria)
 
 
-async def sincronizar_produtos(dados: list[tuple[str, str]]):
-    async with pool.acquire() as conn:
-        for categoria, produto in dados:
-            cat_id = await conn.fetchval("""
-                INSERT INTO categorias (nome) VALUES ($1)
-                ON CONFLICT (nome) DO UPDATE SET nome=$1
-                RETURNING id
-            """, categoria)
-            await conn.execute("""
-                INSERT INTO produtos (categoria_id, nome) VALUES ($1, $2)
-                ON CONFLICT (categoria_id, nome) DO NOTHING
-            """, cat_id, produto)
-
-
 # ── Fotos de Trabalho ─────────────────────────────────────────────────────────
 
 async def salvar_foto_trabalho(funcionario_id: int, obra_id: int, file_id: str):
@@ -348,7 +315,13 @@ async def salvar_pedido(funcionario_id: int, itens: list[dict]) -> int:
 
 # ── Ponto ─────────────────────────────────────────────────────────────────────
 
-CATEGORIAS_PONTO = ("entrada", "saida_almoco", "volta_almoco", "fim_expediente")
+async def get_pontos_por_periodo(funcionario_id: int, data_inicio, data_fim) -> list:
+    async with pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM pontos
+            WHERE funcionario_id=$1 AND data BETWEEN $2 AND $3
+            ORDER BY data, categoria
+        """, funcionario_id, data_inicio, data_fim)
 
 
 async def get_pontos_hoje(funcionario_id: int) -> dict:
